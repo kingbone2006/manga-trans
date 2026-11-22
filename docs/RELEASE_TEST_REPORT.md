@@ -44,4 +44,4 @@
 
 Tauri NSIS bundle đã tạo thành công. MSI chưa phát hành trong mốc này; lần chạy bundle NSIS/MSI trước đó dừng ở MSI do cấu hình icon, sau đó NSIS đã được build và kiểm tra độc lập.
 
-GitHub Release chưa được tạo trong bước này; sẽ chỉ tạo sau khi source commit được push và upload đúng hai artifact nêu trên.
+GitHub Release `v0.1.0` đã được tạo sau khi source commit được push. Upload hai binary asset lên Release đang **Blocked** trong môi trường agent vì connector upload yêu cầu file key ở kho trung gian, còn Git CLI không có credential upload API. Release hiện có source archive của GitHub nhưng chưa có installer/portable asset đính kèm.
