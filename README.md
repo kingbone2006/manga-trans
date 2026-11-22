@@ -16,7 +16,7 @@ MangaTrans là ứng dụng desktop định hướng hỗ trợ dịch truyện 
 - Chuẩn hóa tên file Windows và mã ngôn ngữ thư mục cơ bản.
 - Test tự động cho natural sort, persistence, validate version và tên export.
 
-Chưa triển khai: backend Tauri/Rust native, vision model/OCR-free reading, dịch AI, provider 9Router/LM Studio, pipeline batch, hàng chờ sửa, inpainting, export ảnh, model local/GPU telemetry, onboarding và đóng gói installer/portable. Các nút chưa có backend được vô hiệu hóa, không giả lập kết quả AI.
+Đã có thêm scaffold Tauri 2/Rust với atomic project write, backup, model-folder scan và Windows NSIS build. Chưa triển khai: vision model/OCR-free reading, dịch AI, provider 9Router/LM Studio, pipeline batch, hàng chờ sửa, inpainting, model local inference, GPU telemetry, onboarding đầy đủ và kiểm thử Windows sạch. Các capability AI chưa có backend được báo rõ, không giả lập kết quả.
 
 ## Yêu cầu phát triển
 
