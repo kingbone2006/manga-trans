@@ -22,12 +22,39 @@ export async function sendChat(options: RequestOptions): Promise<ProviderRespons
   const maxRetries = Math.max(0, Math.min(options.maxRetries ?? 2, 5));
   const timeoutMs = Math.max(1000, Math.min(options.timeoutMs ?? 60_000, 300_000));
   const endpoint = `${options.baseUrl.replace(/\/$/, '')}/chat/completions`;
+  const bodyPayload = { stream: false, ...options.request };
   for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
     const controller = new AbortController(); const timeout = setTimeout(() => controller.abort(), timeoutMs);
     try {
-      const response = await fetchImpl(endpoint, { method: 'POST', signal: controller.signal, headers: { 'Content-Type': 'application/json', ...(options.apiKey ? { Authorization: `Bearer ${options.apiKey}` } : {}) }, body: JSON.stringify(options.request) });
+      const response = await fetchImpl(endpoint, { method: 'POST', signal: controller.signal, headers: { 'Content-Type': 'application/json', ...(options.apiKey ? { Authorization: `Bearer ${options.apiKey}` } : {}) }, body: JSON.stringify(bodyPayload) });
       clearTimeout(timeout);
-      if (response.ok) return await response.json() as ProviderResponse;
+      if (response.ok) {
+        if (typeof response.text === 'function') {
+          const text = await response.text();
+          try {
+            return JSON.parse(text) as ProviderResponse;
+          } catch {
+            // Fallback in case of SSE stream format (data: {...})
+            const lines = text.split('\n');
+            let accumulatedContent = '';
+            let responseId = '';
+            for (const line of lines) {
+              const trimmed = line.trim();
+              if (!trimmed.startsWith('data:')) continue;
+              const dataStr = trimmed.slice(5).trim();
+              if (dataStr === '[DONE]') continue;
+              try {
+                const chunk = JSON.parse(dataStr);
+                if (chunk.id) responseId = chunk.id;
+                const delta = chunk.choices?.[0]?.delta?.content || chunk.choices?.[0]?.message?.content || '';
+                accumulatedContent += delta;
+              } catch {}
+            }
+            return { id: responseId, choices: [{ message: { content: accumulatedContent } }] };
+          }
+        }
+        return await response.json() as ProviderResponse;
+      }
       const retryMs = retryAfterMs(response); const body = await response.text(); const kind = classifyProviderError(response.status, body);
       if (attempt < maxRetries && (kind === 'rate-limit' || kind === 'temporary' || kind === 'payload')) { await sleep(retryMs ?? Math.min(1000 * 2 ** attempt, 10_000)); continue; }
       throw failure(`Provider trả lỗi HTTP ${response.status}.`, kind, attempt + 1, retryMs);
@@ -74,7 +101,15 @@ export async function fetchProviderModels(
       const isFilePath = rawId.includes('\\') || rawId.endsWith('.gguf');
       const cleanName = isFilePath ? (rawId.split(/[/\\]/).pop() || rawId) : rawId;
       const lower = cleanName.toLowerCase();
-      const vision = Boolean(lower.includes('vl') || lower.includes('vision') || lower.includes('gpt-4o') || lower.includes('gemini') || lower.includes('claude-3') || (Array.isArray(item?.capabilities) && item.capabilities.includes('multimodal')));
+      const vision = Boolean(
+        lower.includes('vl') ||
+        lower.includes('vision') ||
+        lower.includes('gpt-4o') ||
+        lower.includes('gemini') ||
+        lower.includes('claude-3') ||
+        item?.capabilities?.vision === true ||
+        (Array.isArray(item?.capabilities) && item.capabilities.includes('multimodal'))
+      );
       return { id: rawId, name: cleanName, vision };
     }).filter((item: ProviderModelItem) => Boolean(item.id));
   } catch {
