@@ -26,6 +26,14 @@ Nếu chỉ muốn chạy giao diện web:
 npm run dev
 ```
 
+## Công cụ project
+
+Bấm `Công cụ project` để mở các tab:
+
+- `Context`: chỉnh tóm tắt, ghi chú, glossary và hồ sơ nhân vật. Có tùy chọn riêng để cho phép hoặc không cho context đi vào request external.
+- `Hàng chờ sửa`: thêm preset `Tràn vùng`, `Đọc sai/bỏ sót` hoặc prompt tùy chỉnh cho trang đang chọn; duyệt/hủy từng job. Đây là queue dữ liệu, chưa gọi vision model thật.
+- `Batch`: xem trạng thái từng trang và chạy mock pipeline theo từng bước để kiểm tra UI. Mock pipeline không tạo bản dịch và không gửi request.
+
 ## Quy trình cơ bản
 
 1. Nhập ảnh PNG, JPEG hoặc WebP.

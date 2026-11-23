@@ -31,6 +31,7 @@
 - Provider policy phân biệt local/cloud, consent cloud, lỗi auth/rate-limit/timeout và retry bounded.
 - Pipeline state machine chống chạy trùng, pause/resume/cancel/retry và repair job chờ trang.
 - Schema project có strategy/provider/context/glossary/character profiles/repair jobs với default cho project cũ.
+- UI `Công cụ project` đã nối Context/Glossary/Character/Repair queue và mock Batch state.
 
 ## Blocked/not run
 
