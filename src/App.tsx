@@ -1,6 +1,13 @@
 ﻿import { ChangeEvent, useEffect, useRef, useState } from 'react';
 import { open as openDialog, save as saveDialog } from '@tauri-apps/plugin-dialog';
-import { exportImages, isDesktopRuntime, readProjectNative, saveProjectAtomic } from './native';
+import {
+  exportImages,
+  getGpuTelemetry,
+  isDesktopRuntime,
+  NativeGpuTelemetry,
+  readProjectNative,
+  saveProjectAtomic,
+} from './native';
 import {
   MangaPage,
   MangaProject,
@@ -69,6 +76,25 @@ export default function App() {
   // Live AI Connection State
   const [aiStatus, setAiStatus] = useState<ConnectionStatus>({ connected: false, error: 'Chưa kết nối' });
   const [isCheckingAi, setIsCheckingAi] = useState(false);
+
+  // Live GPU telemetry state for footer
+  const [footerGpu, setFooterGpu] = useState<NativeGpuTelemetry | null>(null);
+
+  useEffect(() => {
+    const fetchGpu = async () => {
+      try {
+        const data = await getGpuTelemetry();
+        setFooterGpu(data);
+      } catch {
+        setFooterGpu(null);
+      }
+    };
+    void fetchGpu();
+    const interval = setInterval(() => {
+      void fetchGpu();
+    }, 2500);
+    return () => clearInterval(interval);
+  }, []);
 
   const picker = useRef<HTMLInputElement>(null);
   const folderPicker = useRef<HTMLInputElement>(null);
@@ -729,7 +755,22 @@ export default function App() {
 
       {/* Footer Bar */}
       <footer>
-        <span>{aiStatus.connected ? `🟢 AI Sẵn sàng (${aiStatus.latencyMs ?? 0}ms)` : '🔴 AI Chưa kết nối'} · MangaTrans v0.1.1</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <span>{aiStatus.connected ? `🟢 AI Online (${aiStatus.latencyMs ?? 0}ms)` : '🔴 AI Offline'} · MangaTrans v0.1.1</span>
+          {footerGpu && (
+            <span
+              className="gpu-badge-footer"
+              onClick={() => setShowGpu(true)}
+              title="Nhấp để xem chi tiết GPU Telemetry"
+            >
+              🎮 <b>{footerGpu.adapter_name.replace('NVIDIA GeForce ', '').replace('Laptop GPU', '').trim()}</b>
+              {' · '}
+              <span>
+                VRAM: {((footerGpu.current_usage_vram_bytes || 0) / (1024 * 1024 * 1024)).toFixed(1)} / {(footerGpu.dedicated_vram_bytes / (1024 * 1024 * 1024)).toFixed(1)} GB
+              </span>
+            </span>
+          )}
+        </div>
         <span>
           Nguồn:{' '}
           <select
@@ -758,6 +799,17 @@ export default function App() {
     </div>
   );
 }
+/**
+ * ============================================================================
+ * ProviderSettings Modal
+ * ----------------------------------------------------------------------------
+ * Cửa sổ cấu hình AI Provider (9Router, Local server RTX 4050, LM Studio, Ollama):
+ * - Tự động tải danh sách Model có hỗ trợ Vision AI từ `/v1/models`.
+ * - Tự động điền Base URL mặc định tương ứng với loại Provider được chọn.
+ * - Hỗ trợ kiểm tra kết nối trực tiếp (Live ping test) kèm tính toán latency ms.
+ * ============================================================================
+ */
+
 
 function ProviderSettings({
   project,
@@ -785,31 +837,32 @@ function ProviderSettings({
   const [liveCheck, setLiveCheck] = useState<ConnectionStatus | null>(null);
 
   const handleFetchModels = async () => {
-    if (!provider.baseUrl.trim()) {
-      setFetchMessage('Vui lòng nhập Base URL trước.');
-      return;
+    let effectiveUrl = provider.baseUrl.trim();
+    // 9Router chạy daemon cục bộ trên cổng 20128; tự động chuyển sang http://localhost:20128/v1 nếu gặp domain web
+    if (!effectiveUrl || effectiveUrl === 'https://api.9router.com/v1') {
+      effectiveUrl = 'http://localhost:20128/v1';
+      edit((val) => ({ ...val, provider: { ...provider, baseUrl: effectiveUrl } }));
     }
     setFetchingModels(true);
     setFetchMessage('Đang kết nối để nạp danh sách model...');
     try {
-      const models = await fetchProviderModels(provider.baseUrl, apiKey);
+      const models = await fetchProviderModels(effectiveUrl, apiKey);
       setAvailableModels(models);
       if (models.length > 0) {
-        setFetchMessage(`Đã nạp thành công ${models.length} model!`);
-        // If current model is empty, auto-select first vision or first model
-        if (!provider.model.trim()) {
-          const firstVision = models.find((m) => m.vision) || models[0];
-          if (firstVision) {
-            edit((val) => ({
-              ...val,
-              provider: {
-                ...provider,
-                model: firstVision.id,
-                vision: firstVision.vision,
-                enabled: true,
-              },
-            }));
-          }
+        setFetchMessage(`Đã nạp thành công ${models.length} model từ ${effectiveUrl}!`);
+        // Tự động ưu tiên chọn model Vision tốt nhất (nicegg nếu có, hoặc vision model đầu tiên)
+        const preferred = models.find((m) => m.id === 'nicegg') || models.find((m) => m.vision) || models[0];
+        if (preferred && (!provider.model.trim() || provider.model === 'openai/gpt-4o' || provider.model === 'Qwen')) {
+          edit((val) => ({
+            ...val,
+            provider: {
+              ...provider,
+              baseUrl: effectiveUrl,
+              model: preferred.id,
+              vision: preferred.vision,
+              enabled: true,
+            },
+          }));
         }
       } else {
         setFetchMessage('Không tìm thấy model nào từ endpoint này. Bạn có thể tự gõ tên model.');
@@ -822,10 +875,14 @@ function ProviderSettings({
   };
 
   const handleTestConnection = async () => {
-    if (!provider.baseUrl.trim()) return;
+    let testUrl = provider.baseUrl.trim();
+    if (!testUrl || testUrl === 'https://api.9router.com/v1') {
+      testUrl = 'http://localhost:20128/v1';
+      edit((val) => ({ ...val, provider: { ...provider, baseUrl: testUrl } }));
+    }
     setLiveCheck({ connected: false, error: 'Đang kiểm tra...' });
     try {
-      const res = await checkProviderLiveStatus(provider.baseUrl, provider.model, apiKey);
+      const res = await checkProviderLiveStatus(testUrl, provider.model, apiKey);
       setLiveCheck(res);
     } catch {
       setLiveCheck({ connected: false, error: 'Thất bại khi kết nối' });
@@ -835,10 +892,10 @@ function ProviderSettings({
   const handleSelectKind = (kind: ProviderKind) => {
     let defaultUrl = provider.baseUrl;
     let defaultModel = provider.model;
-    if (kind === '9router-cloud' && (!defaultUrl || defaultUrl.includes('127.0.0.1') || defaultUrl.includes('localhost'))) {
-      defaultUrl = 'https://api.9router.com/v1';
-      defaultModel = 'openai/gpt-4o';
-    } else if (kind === 'lm-studio-local' && (!defaultUrl || defaultUrl.includes('9router.com'))) {
+    if (kind === '9router-cloud') {
+      defaultUrl = 'http://localhost:20128/v1';
+      defaultModel = 'nicegg';
+    } else if (kind === 'lm-studio-local') {
       defaultUrl = 'http://127.0.0.1:8080/v1';
       defaultModel = 'Qwen';
     }

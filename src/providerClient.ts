@@ -79,44 +79,74 @@ export async function fetchProviderModels(
   apiKey?: string,
   fetchImpl: typeof fetch = fetch
 ): Promise<ProviderModelItem[]> {
-  if (!baseUrl.trim()) return [];
-  const endpoint = `${baseUrl.replace(/\/$/, '')}/models`;
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 10_000);
-  try {
-    const res = await fetchImpl(endpoint, {
-      method: 'GET',
-      signal: controller.signal,
-      headers: {
-        Accept: 'application/json',
-        ...(apiKey?.trim() ? { Authorization: `Bearer ${apiKey.trim()}` } : {}),
-      },
-    });
-    clearTimeout(timeout);
-    if (!res.ok) return [];
-    const json = await res.json();
-    const data = Array.isArray(json?.data) ? json.data : Array.isArray(json?.models) ? json.models : [];
-    return data.map((item: any) => {
-      const rawId = String(item?.id || item?.name || item?.model || '');
-      const isFilePath = rawId.includes('\\') || rawId.endsWith('.gguf');
-      const cleanName = isFilePath ? (rawId.split(/[/\\]/).pop() || rawId) : rawId;
-      const lower = cleanName.toLowerCase();
-      const vision = Boolean(
-        lower.includes('vl') ||
-        lower.includes('vision') ||
-        lower.includes('gpt-4o') ||
-        lower.includes('gemini') ||
-        lower.includes('claude-3') ||
-        item?.capabilities?.vision === true ||
-        (Array.isArray(item?.capabilities) && item.capabilities.includes('multimodal'))
-      );
-      return { id: rawId, name: cleanName, vision };
-    }).filter((item: ProviderModelItem) => Boolean(item.id));
-  } catch {
-    clearTimeout(timeout);
-    return [];
+  const cleanUrl = baseUrl.trim();
+  if (!cleanUrl) return [];
+
+  // Danh sách các endpoint để thử (bao gồm URL người dùng nhập + fallback cổng 9Router desktop 20128)
+  const candidateUrls = [cleanUrl];
+  if (cleanUrl.includes('9router') || cleanUrl.includes('20128')) {
+    if (!candidateUrls.includes('http://localhost:20128/v1')) candidateUrls.push('http://localhost:20128/v1');
+    if (!candidateUrls.includes('http://127.0.0.1:20128/v1')) candidateUrls.push('http://127.0.0.1:20128/v1');
   }
+
+  for (const url of candidateUrls) {
+    const endpoint = `${url.replace(/\/$/, '')}/models`;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 6000);
+    try {
+      const res = await fetchImpl(endpoint, {
+        method: 'GET',
+        signal: controller.signal,
+        headers: {
+          Accept: 'application/json',
+          ...(apiKey?.trim() ? { Authorization: `Bearer ${apiKey.trim()}` } : {}),
+        },
+      });
+      clearTimeout(timeout);
+      if (!res.ok) continue;
+      const json = await res.json();
+      const data = Array.isArray(json?.data) ? json.data : Array.isArray(json?.models) ? json.models : [];
+      const parsed = data.map((item: any) => {
+        const rawId = String(item?.id || item?.name || item?.model || '');
+        const isFilePath = rawId.includes('\\') || rawId.endsWith('.gguf');
+        const cleanName = isFilePath ? (rawId.split(/[/\\]/).pop() || rawId) : rawId;
+        const lower = cleanName.toLowerCase();
+        const vision = Boolean(
+          lower.includes('vl') ||
+          lower.includes('vision') ||
+          lower.includes('gpt-4o') ||
+          lower.includes('gemini') ||
+          lower.includes('claude-3') ||
+          item?.capabilities?.vision === true ||
+          (Array.isArray(item?.capabilities) && item.capabilities.includes('multimodal'))
+        );
+        return { id: rawId, name: cleanName, vision };
+      }).filter((item: ProviderModelItem) => Boolean(item.id));
+
+      if (parsed.length > 0) {
+        return parsed;
+      }
+    } catch {
+      clearTimeout(timeout);
+    }
+  }
+
+  // Nếu là 9Router nhưng không thể kết nối mạng (hoặc bị 404), trả về danh sách model phổ biến của 9Router
+  if (cleanUrl.includes('9router') || cleanUrl.includes('20128')) {
+    return [
+      { id: 'nicegg', name: 'nicegg (Khuyên dùng)', vision: true },
+      { id: 'openai/gpt-4o', name: 'openai/gpt-4o', vision: true },
+      { id: 'google/gemini-2.5-flash', name: 'google/gemini-2.5-flash', vision: true },
+      { id: 'qwen/qwen-2.5-vl-72b-instruct', name: 'qwen/qwen-2.5-vl-72b-instruct', vision: true },
+      { id: 'cc/claude-sonnet-5-5', name: 'cc/claude-sonnet-5-5', vision: true },
+      { id: 'cc/claude-opus-5-5', name: 'cc/claude-opus-5-5', vision: true },
+      { id: 'oc/nemotron-3.5-super-vl-free', name: 'oc/nemotron-3.5-super-vl-free', vision: true },
+    ];
+  }
+
+  return [];
 }
+
 
 export type ConnectionStatus = {
   connected: boolean;

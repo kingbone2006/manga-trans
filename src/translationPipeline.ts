@@ -1,3 +1,15 @@
+/**
+ * ============================================================================
+ * Translation Pipeline (Giai đoạn 2: Contextual Translation & Normalization)
+ * ----------------------------------------------------------------------------
+ * Nhiệm vụ:
+ * 1. Thu thập toàn bộ vùng thoại cần dịch của từng trang (bỏ qua vùng đã approved).
+ * 2. Đưa Context (tóm tắt cốt truyện, ghi chú, glossary, hồ sơ nhân vật) vào prompt dịch.
+ * 3. Gửi yêu cầu dịch qua ProviderClient (hỗ trợ OpenAI-compatible, 9Router, local server).
+ * 4. Parse phản hồi JSON an toàn (chịu được markdown code fence ```json).
+ * 5. Cập nhật câu dịch vào `region.translation` và chẩn đoán tràn khung (diagnoseLayout).
+ * ============================================================================
+ */
 import { MangaPage, MangaProject, TextRegion } from './model';
 import { ProviderSettings } from './model';
 import { sendChat, ProviderResponse } from './providerClient';
