@@ -42,13 +42,13 @@
 - Inference vision, dịch theo context, fallback local, inpainting, GPU sensors và cloud provider chưa được kiểm chứng nên chưa quảng bá là hỗ trợ.
 ## Artifact build
 
-- Installer NSIS x64: `src-tauri/target/release/bundle/nsis/MangaTrans_0.1.0_x64-setup.exe`
-  - SHA-256: `B48E0CD868DE9714DED6F694DEC5B6AC74141DF9B003E45918116190FDC0911`
+- Installer NSIS x64: `src-tauri/target/release/bundle/nsis/MangaTrans_0.1.1_x64-setup.exe`
+  - SHA-256: `1E8156A2493F7C5E1C1055292A548B7639FDE23966ED532D9433C6032F3946DB`
+- Windows MSI x64: `src-tauri/target/release/bundle/msi/MangaTrans_0.1.1_x64_en-US.msi`
 - Portable public x64: `artifacts/MangaTrans-Portable-Windows-x64.zip`
-  - SHA-256: `9C67532D8D886B2302F6D74E8C29CF288D386B800652B211F8D596C`
-- Artifact scan: PASS; không có `.gguf`, `.mmproj`, `.mangatrans`, `.env`, API key hoặc secret.
-- Portable contents: executable, README và hướng dẫn tiếng Việt; không có model weights.
+  - SHA-256: `6252AA66BA8EBA34BF80E3D3C7DACD2D74B064700AE34C0CC3CE8EDF198A5E2B`
+- Artifact scan: PASS; không có `.gguf`, `.mmproj`, `.mangatrans`, `.env`, API key hoặc dữ liệu riêng tư.
+- Portable contents: `manga-trans.exe`, `README.md` tiếng Việt, thư mục `models/` placeholder; không có model weights.
 
-Tauri NSIS bundle đã tạo thành công. MSI chưa phát hành trong mốc này; lần chạy bundle NSIS/MSI trước đó dừng ở MSI do cấu hình icon, sau đó NSIS đã được build và kiểm tra độc lập.
+Cả 2 gói cài đặt NSIS và MSI cùng gói Portable x64 đã được đóng gói thành công. Source code đã được push lên nhánh `main` và gắn tag `v0.1.1` trên repository `https://github.com/kingbone2006/manga-trans`.
 
-GitHub Release `v0.1.0` đã được tạo sau khi source commit được push. Upload hai binary asset lên Release đang **Blocked** trong môi trường agent vì connector upload yêu cầu file key ở kho trung gian, còn Git CLI không có credential upload API. Release hiện có source archive của GitHub nhưng chưa có installer/portable asset đính kèm.
