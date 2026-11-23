@@ -7,6 +7,12 @@ export type ClientFailure = Error & { kind: ProviderErrorClass; attempts: number
 function failure(message: string, kind: ProviderErrorClass, attempts: number, retryAfterMs?: number): ClientFailure { const error = new Error(message) as ClientFailure; error.kind = kind; error.attempts = attempts; error.retryAfterMs = retryAfterMs; return error; }
 function retryAfterMs(response: Response): number | undefined { const value = response.headers.get('retry-after'); if (!value) return undefined; const seconds = Number(value); if (Number.isFinite(seconds)) return Math.min(seconds * 1000, 120_000); const date = Date.parse(value); return Number.isFinite(date) ? Math.max(0, Math.min(date - Date.now(), 120_000)) : undefined; }
 
+export type ConnectionCheck = { ok: true; model?: string; message: string };
+export async function checkConnection(options: Omit<RequestOptions, 'request'> & { model: string }): Promise<ConnectionCheck> {
+  const response = await sendChat({ ...options, request: { model: options.model, messages: [{ role: 'user', content: 'Reply with OK only.' }], temperature: 0, stream: false } });
+  return { ok: true, model: response.id ?? options.model, message: 'Kết nối provider thành công; chưa gửi ảnh.' };
+}
+
 export async function sendChat(options: RequestOptions): Promise<ProviderResponse> {
   if (!options.baseUrl.trim()) throw failure('Chưa cấu hình base URL.', 'configuration', 0);
   if (!options.request.model.trim()) throw failure('Chưa cấu hình model/route.', 'configuration', 0);

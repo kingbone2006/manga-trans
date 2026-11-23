@@ -1,5 +1,7 @@
 export type ReviewStatus = 'pending' | 'in-progress' | 'needs-review' | 'approved' | 'failed';
 
+export type TextRegionKind = 'speech' | 'narration' | 'sound-effect' | 'other';
+
 export interface TextRegion {
   id: string;
   x: number;
@@ -9,6 +11,8 @@ export interface TextRegion {
   sourceText: string;
   translation: string;
   confidence?: number;
+  sourceLanguage?: string | null;
+  kind?: TextRegionKind;
   status: ReviewStatus;
   fontSize?: number;
   textColor?: string;
@@ -24,6 +28,9 @@ export interface CharacterProfile { id: string; name: string; pronouns?: string;
 export interface RepairJob { id: string; pageId: string; regionId?: string; kind: string; prompt: string; status: RepairJobStatus; inputRevision: string; error?: string; }
 export interface ProviderSettings { kind: ProviderKind; baseUrl: string; model: string; hasApiKey: boolean; vision: boolean; enabled: boolean; }
 export interface ProjectContext { summary: string; notes: string; glossary: GlossaryEntry[]; characters: CharacterProfile[]; includeInExternalRequests: boolean; }
+export interface ExportRecord { id: string; createdAt: string; folderName: string; language: string; pageIds: string[]; status: 'completed' | 'partial' | 'cancelled'; }
+export interface ProjectOnboarding { completed: boolean; skipped: boolean; lastStep: number; }
+
 
 export interface MangaPage {
   id: string;
@@ -34,6 +41,7 @@ export interface MangaPage {
   regions: TextRegion[];
   sourceLanguage?: string | null;
   outputFileName?: string;
+  outputTemplate?: string;
   error?: string;
 }
 
@@ -49,6 +57,9 @@ export interface MangaProject {
   provider?: ProviderSettings;
   context?: ProjectContext;
   repairJobs?: RepairJob[];
+  exports?: ExportRecord[];
+  onboarding?: ProjectOnboarding;
+  outputTemplate?: string;
 }
 
 export function createProject(name = 'Project chưa đặt tên'): MangaProject {
@@ -64,6 +75,8 @@ export function createProject(name = 'Project chưa đặt tên'): MangaProject 
     provider: { kind: 'custom-openai-compatible', baseUrl: '', model: '', hasApiKey: false, vision: false, enabled: false },
     context: { summary: '', notes: '', glossary: [], characters: [], includeInExternalRequests: false },
     repairJobs: [],
+    exports: [],
+    onboarding: { completed: false, skipped: false, lastStep: 0 },
   };
 }
 
@@ -80,7 +93,7 @@ export function naturalCompare(left: string, right: string): number {
     if (a[index] === b[index]) continue;
     return a[index]! < b[index]! ? -1 : 1;
   }
-  return 0;
+  return left.localeCompare(right);
 }
 
 export function serializeProject(project: MangaProject): string {
@@ -101,6 +114,8 @@ export function parseProject(raw: string): MangaProject {
     provider: project.provider ?? { kind: 'custom-openai-compatible', baseUrl: '', model: '', hasApiKey: false, vision: false, enabled: false },
     context: project.context ?? { summary: '', notes: '', glossary: [], characters: [], includeInExternalRequests: false },
     repairJobs: project.repairJobs ?? [],
+    exports: project.exports ?? [],
+    onboarding: project.onboarding ?? { completed: false, skipped: false, lastStep: 0 },
   } as MangaProject;
 }
 

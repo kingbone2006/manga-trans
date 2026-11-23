@@ -14,3 +14,7 @@ models/
 *.mmproj
 *.mangatrans
 .cache/
+\[Yoshio Ereki\]*
+*Yoshio*
+
+

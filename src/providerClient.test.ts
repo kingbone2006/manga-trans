@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { sendChat } from './providerClient';
+import { checkConnection, sendChat } from './providerClient';
 
 const request = { model: 'mock', messages: [{ role: 'user' as const, content: 'hello' }] };
 
@@ -20,4 +20,5 @@ describe('OpenAI-compatible client', () => {
     await expect(sendChat({ baseUrl: 'http://127.0.0.1:1234/v1', request, consentToCloud: false, fetchImpl })).rejects.toMatchObject({ kind: 'auth', attempts: 1 });
     expect(fetchImpl).toHaveBeenCalledTimes(1);
   });
+  it('checks connection with a text-only request and no image payload', async () => { const fetchImpl = vi.fn().mockResolvedValue(new Response(JSON.stringify({ id: 'mock-model' }), { status: 200 })); await expect(checkConnection({ baseUrl: 'http://127.0.0.1:1234/v1', model: 'mock', consentToCloud: false, fetchImpl })).resolves.toMatchObject({ ok: true }); const body = JSON.parse(fetchImpl.mock.calls[0]![1].body as string); expect(body.messages[0].content).toBe('Reply with OK only.'); });
 });

@@ -1,95 +1,79 @@
 # Hướng dẫn sử dụng MangaTrans
 
-## Trạng thái bản hiện tại
+MangaTrans là phần mềm desktop chuyên dụng giúp dịch truyện tranh theo từng trang, kết hợp thị giác máy tính (AI vision) và dịch theo ngữ cảnh xuyên suốt chương.
 
-Bản hiện tại là bản phát triển Mốc 1/khung Tauri. Các chức năng đã kiểm chứng gồm nhập ảnh, sắp xếp natural sort, nhúng ảnh vào project JSON, vùng chữ thủ công, undo/redo, preview và export PNG cơ bản.
+## 1. Yêu cầu hệ thống và cài đặt
 
-Vision model, dịch AI, inpainting, provider cloud, local inference và GPU telemetry chưa được bật. Giao diện không giả lập các kết quả này.
+- Hệ điều hành: Windows 10/11 x64.
+- Runtime: Microsoft Edge WebView2 (có sẵn trên hầu hết các bản Windows 10/11).
+- Nếu sử dụng bản Installer: Chạy file `MangaTrans_0.1.0_x64-setup.exe` để cài đặt vào hệ thống.
+- Nếu sử dụng bản Portable: Giải nén `MangaTrans-Portable-Windows-x64.zip` vào bất kỳ thư mục nào và chạy `manga-trans.exe` (không cần quyền admin).
 
-## Chạy từ source
+## 2. Quy trình làm việc cơ bản
 
-Yêu cầu Windows x64 đã kiểm chứng trong môi trường phát triển:
+### Bước 1: Tạo dự án và nhập ảnh
+1. Mở ứng dụng, bấm **Nhập ảnh** (chọn từng file PNG/JPEG/WebP) hoặc **Nhập folder** để tải cả chương truyện.
+2. Thứ tự trang được nhận diện và sắp xếp tự động theo quy tắc natural sort (`001`, `01`, `2`, `10`).
+3. Nếu mở folder ảnh cho dự án chưa đặt tên, ứng dụng sẽ hỏi bạn có muốn đổi tên dự án theo tên folder hay không.
 
-- Node.js và npm để build frontend.
-- Rust stable/MSVC để build backend.
-- WebView2 để chạy ứng dụng Tauri Windows.
+### Bước 2: Cấu hình AI Provider
+Bấm **AI/Provider** trên thanh công cụ để chọn hình thức chạy AI:
+- **9Router online:** Nhập Base URL và API key (API key chỉ được lưu trong bộ nhớ phiên, không ghi vào project). Cần tích chọn đồng ý gửi dữ liệu lên cloud (Cloud Consent).
+- **LM Studio local:** Dành cho người dùng tự chạy server LM Studio trên máy (ví dụ `http://127.0.0.1:1234/v1`).
+- **Model local tích hợp:** Xem hướng dẫn tải cặp file GGUF + mmproj ở phần Quản lý Model Local.
+Bấm nút **Kiểm tra provider** để xác nhận kết nối trước khi bắt đầu.
 
-```powershell
-npm install
-npm run build
-npm run tauri dev
-```
+### Bước 3: Bắt đầu dịch (Start dịch)
+1. Bấm nút **Start dịch** trên thanh công cụ.
+2. Pipeline sẽ tự động thực hiện 2 giai đoạn:
+   - **Giai đoạn 1 (Vision):** Model nhìn trực tiếp ảnh toàn trang, phát hiện vị trí các bong bóng thoại (bounding box), đọc văn bản gốc (`sourceText`) và nhận diện ngôn ngữ.
+   - **Giai đoạn 2 (Dịch ngữ cảnh):** Dịch văn bản sang ngôn ngữ đích đã chọn (`vi`, `en`, `ja`,...), áp dụng glossary (thuật ngữ/tên riêng), hồ sơ nhân vật và tóm tắt cốt truyện.
+3. Giao diện không bị khóa trong quá trình dịch; bạn có thể chuyển trang để xem các trang đã hoàn tất trước.
 
-Nếu chỉ muốn chạy giao diện web:
+### Bước 4: Duyệt và chỉnh sửa trên Canvas
+1. Xem trước bản dịch trực tiếp trên ảnh với overlay bán trong suốt.
+2. Bấm vào một vùng chữ để chỉnh sửa:
+   - Sửa nội dung đọc được hoặc bản dịch.
+   - Chỉnh kích thước, vị trí, cỡ chữ, màu sắc và viền chữ.
+   - Panel bên phải hiển thị cảnh báo dàn chữ (tràn khung, chữ quá nhỏ, tương phản kém).
+3. Đánh dấu trạng thái vùng thành `Đã duyệt (approved)` khi đã hài lòng. Khi chạy lại pipeline, các vùng đã duyệt được bảo vệ tuyệt đối và không bị ghi đè.
 
-```powershell
-npm run dev
-```
+### Bước 5: Hàng chờ sửa (Repair Queue)
+1. Bấm **Công cụ project** và chọn tab **Hàng chờ sửa**.
+2. Chọn loại lỗi cần sửa (Preset) như: *Tràn khung, Đọc sai/bỏ sót chữ, Bỏ sót vùng thoại, Dịch chưa tự nhiên, Sai thứ tự đọc, Sai giọng nhân vật, Sai tên/người nói, Sót chữ/lỗi nền, Mở rộng bong bóng, Sai cỡ/kiểu chữ* hoặc nhập *Prompt tùy chỉnh*.
+3. Bấm **+ Thêm vào hàng chờ sửa** và bấm **Start sửa**.
+4. Kết quả sửa luôn trở về trạng thái `Cần duyệt` để bạn kiểm tra lại trước khi bấm **Duyệt (Approve)**.
+5. Mỗi job sửa gắn với ID ổn định và kiểm tra revision của trang để tránh xung đột nếu trang bị chỉnh sửa song song.
 
-## Cảnh báo dàn chữ
+### Bước 6: Xuất ảnh (Export)
+1. Khi quá trình dịch kết thúc và có ít nhất một trang có kết quả, nút **Xuất đã duyệt** sẽ sáng lên.
+2. Bấm nút để chọn thư mục cha.
+3. MangaTrans sẽ tự động tạo thư mục con theo tên dự án và mã ngôn ngữ đích (ví dụ `Truyen_Test vi`).
+4. Tên file được đặt tự động theo template cấu hình (mặc định `{page:000}.{ext}`). Quá trình xuất ảnh thực hiện qua staging tạm thời để đảm bảo không ghi đè hoặc làm hỏng ảnh nguồn.
 
-Khi chọn một vùng, panel bên phải kiểm tra các lỗi hình học cơ bản:
+## 3. Quản lý Model Local (Qwen3-VL GGUF)
 
-- Vùng vượt khỏi biên ảnh.
-- Cỡ chữ quá nhỏ.
-- Bản dịch có nguy cơ tràn vùng.
-- Vùng chồng lấn.
-- Màu chữ và viền có thể thiếu tương phản.
+1. Bấm **Model local** trên thanh công cụ.
+2. Bấm **Mở thư mục models** để mở thư mục lưu trữ model trên máy của bạn.
+3. Tải cặp file gồm:
+   - File LLM trọng số (ví dụ `Qwen3-VL-4B-Instruct-Q4_K_M.gguf`)
+   - File Vision Encoder (ví dụ `mmproj-Qwen3-VL-4B-Instruct-Q8_0.gguf`)
+   từ trang chính thức trên Hugging Face:
+   - [Qwen3-VL-4B-Instruct-GGUF](https://huggingface.co/Qwen/Qwen3-VL-4B-Instruct-GGUF)
+   - [Qwen3-VL-8B-Instruct-GGUF](https://huggingface.co/Qwen/Qwen3-VL-8B-Instruct-GGUF)
+4. Chép cả 2 file vào thư mục `models`. Ứng dụng sẽ tự động quét và nhận diện cặp model theo thời gian thực.
+5. Chọn model và bấm **Load** để sử dụng.
 
-Đây là cảnh báo hỗ trợ kiểm tra thủ công, không phải đánh giá chất lượng ngôn ngữ của model.
+## 4. Giám sát GPU theo thời gian thực (Windows DXGI)
 
-## Công cụ project
+Bấm **GPU Telemetry** trên thanh công cụ để mở bảng giám sát phần cứng:
+- Đọc thông số GPU thực tế từ Windows DXGI.
+- Hiển thị tên adapter, VRAM dedicated, VRAM shared, budget và mức dùng bộ nhớ hiện tại.
+- Các cảm biến phần cứng (nhiệt độ, công suất, quạt) phụ thuộc driver độc quyền của hãng và được báo rõ ràng là "Không khả dụng" khi chưa tích hợp, cam kết không hiển thị thông số giả.
 
-Bấm `Công cụ project` để mở các tab:
+## 5. Định dạng tệp dự án `.mangatrans`
 
-- `Context`: chỉnh tóm tắt, ghi chú, glossary và hồ sơ nhân vật. Có tùy chọn riêng để cho phép hoặc không cho context đi vào request external.
-- `Hàng chờ sửa`: thêm preset `Tràn vùng`, `Đọc sai/bỏ sót` hoặc prompt tùy chỉnh cho trang đang chọn; duyệt/hủy từng job. Đây là queue dữ liệu, chưa gọi vision model thật.
-- `Batch`: xem trạng thái từng trang và chạy mock pipeline theo từng bước để kiểm tra UI. Mock pipeline không tạo bản dịch và không gửi request.
+- Mỗi dự án được lưu thành một tệp `.mangatrans` chuẩn hóa (container ZIP chứa `manifest.json`, `project.json` và media nhúng).
+- Hỗ trợ lưu nguyên tử (atomic save): ghi vào file tạm, sao lưu thành `.bak` rồi mới cập nhật, giúp an toàn tuyệt đối ngay cả khi máy bị tắt đột ngột.
+- Dự án lưu đầy đủ thứ tự trang, các vùng chữ, bản dịch, thiết lập dàn chữ, glossary, hồ sơ nhân vật, hàng chờ sửa và lịch sử xuất file.
 
-## Quy trình cơ bản
-
-1. Nhập ảnh PNG, JPEG hoặc WebP.
-2. Ảnh được nhúng vào project dưới dạng data URL; ảnh nguồn không bị sửa.
-3. Chọn trang và bấm `+ Thêm vùng chữ`.
-4. Chọn vùng trên preview để chỉnh nội dung nhận diện, bản dịch, vị trí, cỡ chữ, màu chữ và trạng thái.
-5. Dùng `Hoàn tác` hoặc `Làm lại` khi cần.
-6. Bấm `Lưu` để tải file `.mangatrans`.
-7. Dùng `Mở project` để mở lại project.
-8. `Xuất trang` tạo PNG preview mới, không ghi đè ảnh nguồn.
-
-## Model local
-
-Backend Tauri có command tạo và quét thư mục model. Bản hiện tại chỉ lập chỉ mục file `.gguf` và `.mmproj`; chưa load model, chưa thực hiện inference và không tự tải model.
-
-Khi tính năng quản lý model hoàn thiện, chỉ tải model từ nguồn chính thức và kiểm tra license/model card của revision cụ thể:
-
-- [Qwen3-VL-4B-Instruct-GGUF](https://huggingface.co/Qwen/Qwen3-VL-4B-Instruct-GGUF)
-- [Qwen3-VL-8B-Instruct-GGUF](https://huggingface.co/Qwen/Qwen3-VL-8B-Instruct-GGUF)
-
-Dung lượng file tải xuống không phải cam kết VRAM khi chạy.
-
-## Provider và quyền riêng tư
-
-Mở `AI/Provider` để cấu hình 9Router, LM Studio hoặc endpoint OpenAI-compatible tùy chỉnh. Có thể chọn chiến lược online-first + local fallback, chỉ online, chỉ local hoặc hỏi trước khi chuyển.
-
-- API key nhập ở ô password và chỉ giữ trong bộ nhớ phiên; project chỉ lưu `hasApiKey`, không lưu giá trị key.
-- Endpoint cloud phải có consent riêng trước khi request. Local endpoint không cần cloud consent.
-- Provider client có phân loại lỗi auth/rate-limit/temporary/payload/timeout và retry giới hạn; lỗi API key không tự fallback.
-- Chưa tự động gọi provider khi mở ứng dụng. Vision pipeline thật chỉ được chạy khi model/provider đã được xác minh hỗ trợ vision.
-
-Các lớp provider/pipeline đã có mock tests, nhưng chưa kiểm thử API thật và không dùng API trả phí.
-
-- [9Router](https://9router.com)
-- [LM Studio](https://lmstudio.ai/download)
-- [LM Studio OpenAI-compatible API](https://lmstudio.ai/docs/developer/openai-compat)
-
-- [9Router](https://9router.com)
-- [LM Studio](https://lmstudio.ai/download)
-- [LM Studio OpenAI-compatible API](https://lmstudio.ai/docs/developer/openai-compat)
-
-## Quyền riêng tư và giới hạn
-
-- Không gửi ảnh ra ngoài trong bản hiện tại.
-- Không đưa API key, model weights hoặc project riêng vào Git.
-- Data URL làm file project lớn; định dạng phát hành cần chuyển sang container media có manifest và giới hạn kích thước.
-- Export hiện là renderer canvas cơ bản, chưa làm sạch nền/inpainting.
