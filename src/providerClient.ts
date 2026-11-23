@@ -41,3 +41,83 @@ export async function sendChat(options: RequestOptions): Promise<ProviderRespons
   }
   throw failure('Provider thất bại sau số lần thử cho phép.', 'unknown', maxRetries + 1);
 }
+export type ProviderModelItem = {
+  id: string;
+  name: string;
+  vision: boolean;
+};
+
+export async function fetchProviderModels(
+  baseUrl: string,
+  apiKey?: string,
+  fetchImpl: typeof fetch = fetch
+): Promise<ProviderModelItem[]> {
+  if (!baseUrl.trim()) return [];
+  const endpoint = `${baseUrl.replace(/\/$/, '')}/models`;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10_000);
+  try {
+    const res = await fetchImpl(endpoint, {
+      method: 'GET',
+      signal: controller.signal,
+      headers: {
+        Accept: 'application/json',
+        ...(apiKey?.trim() ? { Authorization: `Bearer ${apiKey.trim()}` } : {}),
+      },
+    });
+    clearTimeout(timeout);
+    if (!res.ok) return [];
+    const json = await res.json();
+    const data = Array.isArray(json?.data) ? json.data : Array.isArray(json?.models) ? json.models : [];
+    return data.map((item: any) => {
+      const rawId = String(item?.id || item?.name || item?.model || '');
+      const isFilePath = rawId.includes('\\') || rawId.endsWith('.gguf');
+      const cleanName = isFilePath ? (rawId.split(/[/\\]/).pop() || rawId) : rawId;
+      const lower = cleanName.toLowerCase();
+      const vision = Boolean(lower.includes('vl') || lower.includes('vision') || lower.includes('gpt-4o') || lower.includes('gemini') || lower.includes('claude-3') || (Array.isArray(item?.capabilities) && item.capabilities.includes('multimodal')));
+      return { id: rawId, name: cleanName, vision };
+    }).filter((item: ProviderModelItem) => Boolean(item.id));
+  } catch {
+    clearTimeout(timeout);
+    return [];
+  }
+}
+
+export type ConnectionStatus = {
+  connected: boolean;
+  latencyMs?: number;
+  model?: string;
+  error?: string;
+};
+
+export async function checkProviderLiveStatus(
+  baseUrl: string,
+  model?: string,
+  apiKey?: string,
+  fetchImpl: typeof fetch = fetch
+): Promise<ConnectionStatus> {
+  if (!baseUrl.trim()) return { connected: false, error: 'Chưa cấu hình URL' };
+  const endpoint = `${baseUrl.replace(/\/$/, '')}/models`;
+  const start = performance.now();
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 6000);
+  try {
+    const res = await fetchImpl(endpoint, {
+      method: 'GET',
+      signal: controller.signal,
+      headers: {
+        ...(apiKey?.trim() ? { Authorization: `Bearer ${apiKey.trim()}` } : {}),
+      },
+    });
+    clearTimeout(timeout);
+    const latencyMs = Math.round(performance.now() - start);
+    if (res.ok) {
+      return { connected: true, latencyMs, model: model || 'Sẵn sàng' };
+    }
+    return { connected: false, error: `HTTP ${res.status}` };
+  } catch {
+    clearTimeout(timeout);
+    return { connected: false, error: 'Không kết nối được' };
+  }
+}
+
