@@ -11,7 +11,10 @@ function clamp(value: number): number { return Math.max(0, Math.min(100, value))
 
 export function parseVisionResponse(raw: unknown, confidenceThreshold = 0.7): VisionParseResult {
   let decoded: unknown = raw;
-  if (typeof raw === 'string') { try { decoded = JSON.parse(raw); } catch { throw new VisionResponseError('Vision response không phải JSON hợp lệ.'); } }
+  if (typeof raw === 'string') {
+    const cleaned = raw.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/i, '').trim();
+    try { decoded = JSON.parse(cleaned); } catch { throw new VisionResponseError('Vision response không phải JSON hợp lệ.'); }
+  }
   const root = objectValue(decoded); const list = root.regions;
   if (!Array.isArray(list)) throw new VisionResponseError('Vision response thiếu mảng regions.');
   const warnings: string[] = [];

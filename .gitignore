@@ -16,5 +16,8 @@ models/
 .cache/
 \[Yoshio Ereki\]*
 *Yoshio*
+bin/
+output_translated/
+
 
 
