@@ -11,7 +11,7 @@
 | Nhóm | Lệnh/kiểm tra | Kết quả |
 |---|---|---|
 | Frontend typecheck | `npx tsc -b --pretty false` | PASS |
-| Frontend unit tests | `npm test -- --run` | PASS, 4 tests |
+| Frontend unit tests | `npm test -- --run` | PASS, 13 tests |
 | Frontend production build | `npm run build` | PASS |
 | Rust check | `cargo check --manifest-path src-tauri/Cargo.toml` | PASS |
 | Rust unit tests | `cargo test --manifest-path src-tauri/Cargo.toml` | PASS, 1 test |
@@ -28,6 +28,9 @@
 - Rust command `save_project_atomic` tạo file tạm, backup trước khi thay thế và rename công bố.
 - Rust command quét `.gguf`/`.mmproj` không tự load.
 - Capability backend báo rõ vision/inpainting/GPU telemetry chưa hỗ trợ.
+- Provider policy phân biệt local/cloud, consent cloud, lỗi auth/rate-limit/timeout và retry bounded.
+- Pipeline state machine chống chạy trùng, pause/resume/cancel/retry và repair job chờ trang.
+- Schema project có strategy/provider/context/glossary/character profiles/repair jobs với default cho project cũ.
 
 ## Blocked/not run
 

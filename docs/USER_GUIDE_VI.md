@@ -48,9 +48,20 @@ Khi tính năng quản lý model hoàn thiện, chỉ tải model từ nguồn c
 
 Dung lượng file tải xuống không phải cam kết VRAM khi chạy.
 
-## Provider online
+## Provider và quyền riêng tư
 
-Chưa bật request cloud trong bản này. Khi triển khai, 9Router và LM Studio sẽ được phân biệt rõ theo endpoint; API key không được lưu trong project hoặc log. Không nhập mật khẩu tài khoản vào ứng dụng.
+Mở `AI/Provider` để cấu hình 9Router, LM Studio hoặc endpoint OpenAI-compatible tùy chỉnh. Có thể chọn chiến lược online-first + local fallback, chỉ online, chỉ local hoặc hỏi trước khi chuyển.
+
+- API key nhập ở ô password và chỉ giữ trong bộ nhớ phiên; project chỉ lưu `hasApiKey`, không lưu giá trị key.
+- Endpoint cloud phải có consent riêng trước khi request. Local endpoint không cần cloud consent.
+- Provider client có phân loại lỗi auth/rate-limit/temporary/payload/timeout và retry giới hạn; lỗi API key không tự fallback.
+- Chưa tự động gọi provider khi mở ứng dụng. Vision pipeline thật chỉ được chạy khi model/provider đã được xác minh hỗ trợ vision.
+
+Các lớp provider/pipeline đã có mock tests, nhưng chưa kiểm thử API thật và không dùng API trả phí.
+
+- [9Router](https://9router.com)
+- [LM Studio](https://lmstudio.ai/download)
+- [LM Studio OpenAI-compatible API](https://lmstudio.ai/docs/developer/openai-compat)
 
 - [9Router](https://9router.com)
 - [LM Studio](https://lmstudio.ai/download)

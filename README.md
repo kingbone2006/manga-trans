@@ -14,7 +14,10 @@ MangaTrans là ứng dụng desktop định hướng hỗ trợ dịch truyện 
 - Undo/redo cho các thay đổi project.
 - Preview bản dịch thủ công trên overlay và export PNG preview của trang hiện tại; không ghi đè ảnh nguồn.
 - Chuẩn hóa tên file Windows và mã ngôn ngữ thư mục cơ bản.
-- Test tự động cho natural sort, persistence, validate version và tên export.
+- Schema project có strategy/provider/context/glossary/character profiles/repair jobs tương thích ngược.
+- Provider policy và OpenAI-compatible client có consent cloud, phân loại lỗi, Retry-After và retry giới hạn; chỉ mock-test, chưa tự gọi API thật.
+- Pipeline state machine có pause/resume/cancel/retry, chống chạy trùng và repair job chờ trang.
+- Test tự động cho persistence, provider policy, bounded retry, pipeline state và tên export.
 
 Đã có thêm scaffold Tauri 2/Rust với atomic project write, backup, model-folder scan và Windows NSIS build. Chưa triển khai: vision model/OCR-free reading, dịch AI, provider 9Router/LM Studio, pipeline batch, hàng chờ sửa, inpainting, model local inference, GPU telemetry, onboarding đầy đủ và kiểm thử Windows sạch. Các capability AI chưa có backend được báo rõ, không giả lập kết quả.
 
