@@ -1,6 +1,6 @@
 [package]
 name = "manga-trans"
-version = "0.1.0"
+version = "0.1.1"
 description = "MangaTrans desktop shell"
 authors = ["kingbone2006"]
 edition = "2021"

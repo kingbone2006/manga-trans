@@ -2,7 +2,7 @@
 
 ## Phiên bản
 
-- Source version: `0.1.0`
+- Source version: `0.1.1`
 - Môi trường: Windows x64, Node.js 26.10.0, npm 12.1.0, Rust 1.100.0, Cargo 1.100.0, target `x86_64-pc-windows-msvc`
 - GPU/model/provider thật: chưa kiểm thử; không dùng API trả phí và không tải model weights.
 
