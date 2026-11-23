@@ -11,7 +11,7 @@
 | Nhóm | Lệnh/kiểm tra | Kết quả |
 |---|---|---|
 | Frontend typecheck | `npx tsc -b --pretty false` | PASS |
-| Frontend unit tests | `npm test -- --run` | PASS, 13 tests |
+| Frontend unit tests | `npm test -- --run` | PASS, 14 tests |
 | Frontend production build | `npm run build` | PASS |
 | Rust check | `cargo check --manifest-path src-tauri/Cargo.toml` | PASS |
 | Rust unit tests | `cargo test --manifest-path src-tauri/Cargo.toml` | PASS, 1 test |
@@ -32,6 +32,7 @@
 - Pipeline state machine chống chạy trùng, pause/resume/cancel/retry và repair job chờ trang.
 - Schema project có strategy/provider/context/glossary/character profiles/repair jobs với default cho project cũ.
 - UI `Công cụ project` đã nối Context/Glossary/Character/Repair queue và mock Batch state.
+- Layout diagnostics kiểm tra overflow, too-small, out-of-bounds, overlap và contrast.
 
 ## Blocked/not run
 

@@ -26,6 +26,18 @@ Nếu chỉ muốn chạy giao diện web:
 npm run dev
 ```
 
+## Cảnh báo dàn chữ
+
+Khi chọn một vùng, panel bên phải kiểm tra các lỗi hình học cơ bản:
+
+- Vùng vượt khỏi biên ảnh.
+- Cỡ chữ quá nhỏ.
+- Bản dịch có nguy cơ tràn vùng.
+- Vùng chồng lấn.
+- Màu chữ và viền có thể thiếu tương phản.
+
+Đây là cảnh báo hỗ trợ kiểm tra thủ công, không phải đánh giá chất lượng ngôn ngữ của model.
+
 ## Công cụ project
 
 Bấm `Công cụ project` để mở các tab:
