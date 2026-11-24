@@ -101,5 +101,55 @@ export async function getGpuTelemetry(): Promise<NativeGpuTelemetry | null> {
   if (!isDesktopRuntime()) return null;
   return invoke<NativeGpuTelemetry>('get_gpu_telemetry');
 }
+export type NativeHttpResponse = {
+  status: number;
+  body: string;
+  ok: boolean;
+};
+
+/** Gọi HTTP request qua backend Rust để tránh hoàn toàn lỗi CORS và Private Network Access của WebView */
+export async function nativeHttpRequest(
+  url: string,
+  method = 'GET',
+  headers: Record<string, string> = {},
+  body?: string
+): Promise<NativeHttpResponse> {
+  if (!isDesktopRuntime()) throw new Error('Native HTTP chỉ khả dụng trong Tauri desktop.');
+  return invoke<NativeHttpResponse>('native_http_request', { url, method, headers, body });
+}
+
+/**
+ * Universal Fetch:
+ * Trong môi trường Tauri desktop, gọi qua nativeHttpRequest (Rust ureq) để vượt qua mọi rào cản CORS & loopback isolation.
+ * Trong môi trường test/web, sử dụng window.fetch tiêu chuẩn.
+ */
+export async function universalFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  if (isDesktopRuntime()) {
+    try {
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+      const method = init?.method ?? (typeof input === 'object' && 'method' in input ? input.method : 'GET');
+      const headers: Record<string, string> = {};
+      if (init?.headers) {
+        if (init.headers instanceof Headers) {
+          init.headers.forEach((v, k) => { headers[k] = v; });
+        } else if (Array.isArray(init.headers)) {
+          init.headers.forEach(([k, v]) => { headers[k] = v; });
+        } else {
+          Object.assign(headers, init.headers);
+        }
+      }
+      const body = typeof init?.body === 'string' ? init.body : undefined;
+      const resp = await nativeHttpRequest(url, method, headers, body);
+      return new Response(resp.body, {
+        status: resp.status,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    } catch {
+      // Fallback to fetch if native invoke fails
+    }
+  }
+  return fetch(input, init);
+}
+
 
 

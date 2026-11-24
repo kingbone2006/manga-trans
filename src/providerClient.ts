@@ -1,4 +1,5 @@
 import { ChatRequest, ProviderErrorClass, classifyProviderError } from './provider';
+import { universalFetch } from './native';
 
 export type ProviderResponse = { id?: string; choices?: Array<{ message?: { content?: unknown } }>; usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number } };
 export type RequestOptions = { baseUrl: string; apiKey?: string; request: ChatRequest; consentToCloud: boolean; timeoutMs?: number; maxRetries?: number; fetchImpl?: typeof fetch; sleep?: (ms: number) => Promise<void>; };
@@ -17,7 +18,7 @@ export async function sendChat(options: RequestOptions): Promise<ProviderRespons
   if (!options.baseUrl.trim()) throw failure('Chưa cấu hình base URL.', 'configuration', 0);
   if (!options.request.model.trim()) throw failure('Chưa cấu hình model/route.', 'configuration', 0);
   if (!options.consentToCloud && !/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?\/?/i.test(options.baseUrl)) throw failure('Cần xác nhận trước khi gửi dữ liệu lên cloud.', 'configuration', 0);
-  const fetchImpl = options.fetchImpl ?? fetch;
+  const fetchImpl = options.fetchImpl ?? universalFetch;
   const sleep = options.sleep ?? ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)));
   const maxRetries = Math.max(0, Math.min(options.maxRetries ?? 2, 5));
   const timeoutMs = Math.max(1000, Math.min(options.timeoutMs ?? 60_000, 300_000));
@@ -79,7 +80,7 @@ export type ProviderModelItem = {
 export async function fetchProviderModels(
   baseUrl: string,
   apiKey?: string,
-  fetchImpl: typeof fetch = fetch
+  fetchImpl: typeof fetch = universalFetch
 ): Promise<ProviderModelItem[]> {
   const cleanUrl = baseUrl.trim();
   if (!cleanUrl) return [];
@@ -164,7 +165,7 @@ export async function checkProviderLiveStatus(
   baseUrl: string,
   model?: string,
   apiKey?: string,
-  fetchImpl: typeof fetch = fetch
+  fetchImpl: typeof fetch = universalFetch
 ): Promise<ConnectionStatus> {
   const cleanUrl = baseUrl.trim();
   if (!cleanUrl) return { connected: false, error: 'Chưa cấu hình URL' };

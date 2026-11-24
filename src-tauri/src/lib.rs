@@ -33,6 +33,51 @@ mod commands {
     #[derive(Debug, Serialize)]
     pub struct ModelEntry { pub name: String, pub path: String, pub extension: String, pub size_bytes: u64, pub kind: String, pub ready: bool, pub reason: Option<String> }
     fn safe_parent(path: &Path) -> Result<&Path, String> { path.parent().ok_or_else(|| "Đường dẫn project không có thư mục cha.".to_string()) }
+    #[derive(Debug, Serialize, Deserialize)]
+    pub struct NativeHttpResponse {
+        pub status: u16,
+        pub body: String,
+        pub ok: bool,
+    }
+
+    #[tauri::command]
+    pub fn native_http_request(
+        url: String,
+        method: String,
+        headers: std::collections::HashMap<String, String>,
+        body: Option<String>,
+    ) -> Result<NativeHttpResponse, String> {
+        let response = if method.eq_ignore_ascii_case("POST") {
+            let mut req = ureq::post(&url);
+            for (k, v) in headers {
+                req = req.header(&k, &v);
+            }
+            if let Some(b) = body {
+                req.send(b.as_bytes())
+            } else {
+                req.send(b"".as_slice())
+            }
+        } else {
+            let mut req = ureq::get(&url);
+            for (k, v) in headers {
+                req = req.header(&k, &v);
+            }
+            req.call()
+        };
+        match response {
+            Ok(mut resp) => {
+                let status = resp.status().as_u16();
+                let body = resp.body_mut().read_to_string().unwrap_or_default();
+                Ok(NativeHttpResponse {
+                    status,
+                    body,
+                    ok: status >= 200 && status < 300,
+                })
+            }
+            Err(e) => Err(format!("Lỗi kết nối native: {e}")),
+        }
+    }
+
     #[tauri::command]
     pub fn app_info() -> serde_json::Value { serde_json::json!({ "version": env!("CARGO_PKG_VERSION"), "backend": "tauri-rust", "vision": false, "inpainting": false, "gpu_telemetry": true }) }
 
@@ -178,7 +223,8 @@ pub fn run() {
             commands::model_directory,
             commands::scan_models,
             commands::export_images,
-            commands::get_gpu_telemetry
+            commands::get_gpu_telemetry,
+            commands::native_http_request
         ])
         .run(tauri::generate_context!())
         .expect("error while running MangaTrans");
