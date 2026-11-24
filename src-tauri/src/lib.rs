@@ -41,41 +41,45 @@ mod commands {
     }
 
     #[tauri::command]
-    pub fn native_http_request(
+    pub async fn native_http_request(
         url: String,
         method: String,
         headers: std::collections::HashMap<String, String>,
         body: Option<String>,
     ) -> Result<NativeHttpResponse, String> {
-        let response = if method.eq_ignore_ascii_case("POST") {
-            let mut req = ureq::post(&url);
-            for (k, v) in headers {
-                req = req.header(&k, &v);
-            }
-            if let Some(b) = body {
-                req.send(b.as_bytes())
+        tauri::async_runtime::spawn_blocking(move || {
+            let response = if method.eq_ignore_ascii_case("POST") {
+                let mut req = ureq::post(&url);
+                for (k, v) in headers {
+                    req = req.header(&k, &v);
+                }
+                if let Some(b) = body {
+                    req.send(b.as_bytes())
+                } else {
+                    req.send(b"".as_slice())
+                }
             } else {
-                req.send(b"".as_slice())
+                let mut req = ureq::get(&url);
+                for (k, v) in headers {
+                    req = req.header(&k, &v);
+                }
+                req.call()
+            };
+            match response {
+                Ok(mut resp) => {
+                    let status = resp.status().as_u16();
+                    let body = resp.body_mut().read_to_string().unwrap_or_default();
+                    Ok(NativeHttpResponse {
+                        status,
+                        body,
+                        ok: status >= 200 && status < 300,
+                    })
+                }
+                Err(e) => Err(format!("Lỗi kết nối native: {e}")),
             }
-        } else {
-            let mut req = ureq::get(&url);
-            for (k, v) in headers {
-                req = req.header(&k, &v);
-            }
-            req.call()
-        };
-        match response {
-            Ok(mut resp) => {
-                let status = resp.status().as_u16();
-                let body = resp.body_mut().read_to_string().unwrap_or_default();
-                Ok(NativeHttpResponse {
-                    status,
-                    body,
-                    ok: status >= 200 && status < 300,
-                })
-            }
-            Err(e) => Err(format!("Lỗi kết nối native: {e}")),
-        }
+        })
+        .await
+        .map_err(|e| format!("Task spawn error: {e}"))?
     }
 
     #[tauri::command]

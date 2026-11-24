@@ -50,8 +50,22 @@ export function buildTranslationPrompt(payload: TranslationRequestPayload): stri
 export function parseTranslationResponse(content: unknown): { translations: Record<string, string> } {
   let decoded: unknown = content;
   if (typeof content === 'string') {
-    const cleaned = content.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/i, '').trim();
-    try { decoded = JSON.parse(cleaned); } catch { throw new Error('Translation response không phải JSON hợp lệ.'); }
+    let cleaned = content.trim();
+    const jsonMatch = cleaned.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+    if (jsonMatch) {
+      cleaned = jsonMatch[1].trim();
+    } else {
+      const start = cleaned.indexOf('{');
+      const end = cleaned.lastIndexOf('}');
+      if (start !== -1 && end !== -1 && end > start) {
+        cleaned = cleaned.slice(start, end + 1);
+      }
+    }
+    try {
+      decoded = JSON.parse(cleaned);
+    } catch {
+      throw new Error('Translation response không phải JSON hợp lệ.');
+    }
   }
   if (!decoded || typeof decoded !== 'object' || Array.isArray(decoded)) {
     throw new Error('Translation response không phải object JSON.');

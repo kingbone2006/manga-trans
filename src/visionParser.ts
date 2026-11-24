@@ -12,8 +12,22 @@ function clamp(value: number): number { return Math.max(0, Math.min(100, value))
 export function parseVisionResponse(raw: unknown, confidenceThreshold = 0.7): VisionParseResult {
   let decoded: unknown = raw;
   if (typeof raw === 'string') {
-    const cleaned = raw.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/i, '').trim();
-    try { decoded = JSON.parse(cleaned); } catch { throw new VisionResponseError('Vision response không phải JSON hợp lệ.'); }
+    let cleaned = raw.trim();
+    const jsonMatch = cleaned.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+    if (jsonMatch) {
+      cleaned = jsonMatch[1].trim();
+    } else {
+      const start = cleaned.indexOf('{');
+      const end = cleaned.lastIndexOf('}');
+      if (start !== -1 && end !== -1 && end > start) {
+        cleaned = cleaned.slice(start, end + 1);
+      }
+    }
+    try {
+      decoded = JSON.parse(cleaned);
+    } catch {
+      throw new VisionResponseError('Vision response không phải JSON hợp lệ.');
+    }
   }
   const root = objectValue(decoded); const list = root.regions;
   if (!Array.isArray(list)) throw new VisionResponseError('Vision response thiếu mảng regions.');
