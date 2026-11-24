@@ -42,6 +42,13 @@ import {
   ProviderModelItem,
 } from './providerClient';
 
+export interface AppLogEntry {
+  id: string;
+  timestamp: string;
+  level: 'info' | 'progress' | 'success' | 'warning' | 'error';
+  message: string;
+}
+
 const makeId = (prefix: string) => `${prefix}-${crypto.randomUUID()}`;
 const fileToDataUrl = (file: File) =>
   new Promise<string>((resolve, reject) => {
@@ -95,6 +102,32 @@ export default function App() {
     }, 2500);
     return () => clearInterval(interval);
   }, []);
+  // Terminal / Activity Log State
+  const [logs, setLogs] = useState<AppLogEntry[]>([
+    {
+      id: 'init',
+      timestamp: new Date().toLocaleTimeString('vi-VN', { hour12: false }),
+      level: 'info',
+      message: 'MangaTrans đã khởi động sẵn sàng. Hãy bấm "+ Folder" để nhập truyện hoặc mở "AI Provider".',
+    },
+  ]);
+  const [showLogPanel, setShowLogPanel] = useState(true);
+  const logContainerRef = useRef<HTMLDivElement>(null);
+
+  const addLog = (level: AppLogEntry['level'], message: string) => {
+    const time = new Date().toLocaleTimeString('vi-VN', { hour12: false });
+    setLogs((prev) => [
+      ...prev.slice(-400),
+      { id: crypto.randomUUID(), timestamp: time, level, message },
+    ]);
+  };
+
+  useEffect(() => {
+    if (logContainerRef.current) {
+      logContainerRef.current.scrollTop = logContainerRef.current.scrollHeight;
+    }
+  }, [logs]);
+
 
   const picker = useRef<HTMLInputElement>(null);
   const folderPicker = useRef<HTMLInputElement>(null);
@@ -180,9 +213,13 @@ export default function App() {
         pages: [...value.pages, ...pages].map((item, index) => ({ ...item, order: index })),
         selectedPageId: value.selectedPageId ?? pages[0]!.id,
       }));
-      setNotice(`Đã nhập ${files.length} trang${folderName ? ` từ folder ${folderName}` : ''}.`);
+      const msg = `Đã nhập ${files.length} trang${folderName ? ` từ folder ${folderName}` : ''}.`;
+      setNotice(msg);
+      addLog('success', msg);
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : 'Không thể nhập ảnh.');
+      const errMsg = error instanceof Error ? error.message : 'Không thể nhập ảnh.';
+      setNotice(errMsg);
+      addLog('error', errMsg);
     }
     event.target.value = '';
   };
@@ -330,33 +367,46 @@ export default function App() {
   const startTranslation = async () => {
     const provider = project.provider;
     if (!provider?.enabled) {
-      setNotice('Provider chưa được kích hoạt. Hãy bấm vào "AI Provider" để bật.');
+      const msg = 'Provider chưa được kích hoạt. Hãy bấm vào "AI Provider" để bật.';
+      setNotice(msg);
+      addLog('warning', msg);
       setShowSettings(true);
       return;
     }
     if (!provider.model.trim() || !provider.baseUrl.trim()) {
-      setNotice('Thiếu Model hoặc Base URL trong cài đặt AI.');
+      const msg = 'Thiếu Model hoặc Base URL trong cài đặt AI.';
+      setNotice(msg);
+      addLog('warning', msg);
       setShowSettings(true);
       return;
     }
     const capability = endpointCapability(provider);
     if (!capability.vision) {
-      setNotice('Provider/model chưa xác minh hỗ trợ vision; vui lòng tích xác minh vision.');
+      const msg = 'Provider/model chưa xác minh hỗ trợ vision; vui lòng tích xác minh vision.';
+      setNotice(msg);
+      addLog('warning', msg);
       setShowSettings(true);
       return;
     }
     if (capability.remote && !cloudConsent) {
-      setNotice('Cần xác nhận cho phép gửi dữ liệu lên cloud trước khi bắt đầu.');
+      const msg = 'Cần xác nhận cho phép gửi dữ liệu lên cloud trước khi bắt đầu.';
+      setNotice(msg);
+      addLog('warning', msg);
       setShowSettings(true);
       return;
     }
     if (!project.pages.length) {
-      setNotice('Chưa có trang nào trong project để dịch.');
+      const msg = 'Chưa có trang nào trong project để dịch.';
+      setNotice(msg);
+      addLog('warning', msg);
       return;
     }
 
     setIsTranslating(true);
     setPipeline(createPipeline(project.pages));
+    setShowLogPanel(true);
+    addLog('info', `[BẮT ĐẦU DỊCH] Tổng cộng ${project.pages.length} trang | Model: ${provider.model} | Endpoint: ${provider.baseUrl}`);
+    addLog('progress', '--- Giai đoạn 1/2: Vision AI nhận diện tọa độ bong bóng thoại từng trang ---');
     setNotice('Giai đoạn 1/2: Đang nhận diện Vision AI và đọc thoại từng trang...');
 
     try {
@@ -366,16 +416,26 @@ export default function App() {
         consentToCloud: cloudConsent,
       });
       const visionResult = await runVisionPipeline(project, adapter, (event) => {
+        const pageName = project.pages[event.index]?.fileName ?? `Trang ${event.index + 1}`;
+        if (event.stage === 'started') {
+          addLog('progress', `[Vision ${event.index + 1}/${event.total}] Đang quét ${pageName}...`);
+        } else if (event.stage === 'completed' || event.stage === 'needs-review') {
+          addLog('success', `[Vision ${event.index + 1}/${event.total}] Đã quét xong ${pageName}.`);
+        } else if (event.stage === 'failed') {
+          addLog('error', `[Vision ${event.index + 1}/${event.total}] Lỗi tại ${pageName}: ${event.message}`);
+        }
         setNotice(`Vision [${event.index + 1}/${event.total}]: ${event.stage}${event.message ? ` — ${event.message}` : ''}`);
       });
       setProject(visionResult.project);
 
+      addLog('progress', '--- Giai đoạn 2/2: Dịch ngữ cảnh câu chuyện sang Tiếng Việt ---');
       setNotice('Giai đoạn 2/2: Đang dịch ngữ cảnh câu chuyện sang Tiếng Việt...');
       const translated = await translateProjectPages(visionResult.project, {
         settings: provider,
         apiKey: sessionApiKey || undefined,
         consentToCloud: cloudConsent,
         onProgress: (info) => {
+          addLog('progress', `[Dịch ${info.pageIndex + 1}/${info.totalPages}] Đang dịch ${info.pageName}...`);
           setNotice(`Dịch trang [${info.pageIndex + 1}/${info.totalPages}] (${info.pageName})...`);
         },
       });
@@ -393,9 +453,13 @@ export default function App() {
           };
         }),
       }));
-      setNotice(`Dịch hoàn tất ${translated.pages.length} trang! Hãy kiểm tra preview và bấm "Xuất đã duyệt".`);
+      const successMsg = `🎉 Dịch hoàn tất ${translated.pages.length} trang! Bạn có thể xem preview và bấm "Xuất đã duyệt".`;
+      setNotice(successMsg);
+      addLog('success', successMsg);
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : 'Pipeline dịch gặp lỗi.');
+      const errMsg = error instanceof Error ? error.message : 'Pipeline dịch gặp lỗi.';
+      setNotice(errMsg);
+      addLog('error', `Lỗi pipeline: ${errMsg}`);
     } finally {
       setIsTranslating(false);
     }
@@ -731,11 +795,50 @@ export default function App() {
             </div>
           </div>
 
+          {/* Terminal / Live Log Box */}
+          {showLogPanel && (
+            <div className="log-panel">
+              <div className="log-header">
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontWeight: 600, fontSize: '11.5px', color: '#cbd5e1' }}>
+                    📋 Nhật ký hoạt động & tiến trình AI
+                  </span>
+                  <span className="count">{logs.length} dòng</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <button onClick={() => setLogs([])} style={{ padding: '2px 8px', fontSize: '11px' }}>
+                    Xóa log
+                  </button>
+                  <button onClick={() => setShowLogPanel(false)} style={{ padding: '2px 8px', fontSize: '11px' }}>
+                    ▼ Ẩn
+                  </button>
+                </div>
+              </div>
+              <div className="log-body" ref={logContainerRef}>
+                {logs.map((log) => (
+                  <div key={log.id} className={`log-line log-${log.level}`}>
+                    <span className="log-time">[{log.timestamp}]</span>{' '}
+                    <span className="log-msg">{log.message}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="canvas-footer">
             <span className="notice-text">{notice}</span>
-            <button disabled={!page} onClick={addRegion} className="btn-primary" style={{ padding: '4px 10px' }}>
-              + Thêm vùng chữ
-            </button>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              <button
+                onClick={() => setShowLogPanel(!showLogPanel)}
+                style={{ padding: '4px 8px', fontSize: '11.5px' }}
+                title="Bật/tắt ô nhật ký tiến trình"
+              >
+                {showLogPanel ? '📋 Ẩn log' : '📋 Hiện log'}
+              </button>
+              <button disabled={!page} onClick={addRegion} className="btn-primary" style={{ padding: '4px 10px' }}>
+                + Thêm vùng chữ
+              </button>
+            </div>
           </div>
         </section>
 

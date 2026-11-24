@@ -143,8 +143,11 @@ export async function translateProjectPages(
         updatedPage.status = 'needs-review';
       }
       updatedPages.push(updatedPage);
+      // Nhường CPU cho UI event loop để giao diện luôn phản hồi
+      await new Promise((r) => setTimeout(r, 15));
     } catch (err) {
       updatedPages.push({ ...page, status: 'failed', error: err instanceof Error ? err.message : 'Translation request thất bại.' });
+      await new Promise((r) => setTimeout(r, 15));
     }
   }
 

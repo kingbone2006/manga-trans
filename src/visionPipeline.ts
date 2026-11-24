@@ -101,6 +101,8 @@ export async function runVisionPipeline(
       };
       events.push(event);
       onEvent?.(event);
+      // Nhường CPU cho UI event loop để giao diện luôn mượt mà, không bị Not Responding
+      await new Promise((r) => setTimeout(r, 15));
     } catch (error) {
       failed += 1;
       const event: VisionPipelineEvent = {
