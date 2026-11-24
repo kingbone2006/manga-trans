@@ -21,7 +21,9 @@ export async function sendChat(options: RequestOptions): Promise<ProviderRespons
   const sleep = options.sleep ?? ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)));
   const maxRetries = Math.max(0, Math.min(options.maxRetries ?? 2, 5));
   const timeoutMs = Math.max(1000, Math.min(options.timeoutMs ?? 60_000, 300_000));
-  const endpoint = `${options.baseUrl.replace(/\/$/, '')}/chat/completions`;
+  // Normalize localhost to 127.0.0.1 to avoid Windows IPv6 [::1] connection refused
+  const normalizedBaseUrl = options.baseUrl.replace('://localhost', '://127.0.0.1');
+  const endpoint = `${normalizedBaseUrl.replace(/\/$/, '')}/chat/completions`;
   const bodyPayload = { stream: false, ...options.request };
   for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
     const controller = new AbortController(); const timeout = setTimeout(() => controller.abort(), timeoutMs);
@@ -82,11 +84,14 @@ export async function fetchProviderModels(
   const cleanUrl = baseUrl.trim();
   if (!cleanUrl) return [];
 
-  // Danh sách các endpoint để thử (bao gồm URL người dùng nhập + fallback cổng 9Router desktop 20128)
+  // Tự động ưu tiên 127.0.0.1 (IPv4) để tránh lỗi IPv6 ::1 Connection Refused trên Windows WebView
   const candidateUrls = [cleanUrl];
+  if (cleanUrl.includes('localhost')) {
+    candidateUrls.unshift(cleanUrl.replace('://localhost', '://127.0.0.1'));
+  }
   if (cleanUrl.includes('9router') || cleanUrl.includes('20128')) {
-    if (!candidateUrls.includes('http://localhost:20128/v1')) candidateUrls.push('http://localhost:20128/v1');
     if (!candidateUrls.includes('http://127.0.0.1:20128/v1')) candidateUrls.push('http://127.0.0.1:20128/v1');
+    if (!candidateUrls.includes('http://localhost:20128/v1')) candidateUrls.push('http://localhost:20128/v1');
   }
 
   for (const url of candidateUrls) {
@@ -161,28 +166,43 @@ export async function checkProviderLiveStatus(
   apiKey?: string,
   fetchImpl: typeof fetch = fetch
 ): Promise<ConnectionStatus> {
-  if (!baseUrl.trim()) return { connected: false, error: 'Chưa cấu hình URL' };
-  const endpoint = `${baseUrl.replace(/\/$/, '')}/models`;
-  const start = performance.now();
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 6000);
-  try {
-    const res = await fetchImpl(endpoint, {
-      method: 'GET',
-      signal: controller.signal,
-      headers: {
-        ...(apiKey?.trim() ? { Authorization: `Bearer ${apiKey.trim()}` } : {}),
-      },
-    });
-    clearTimeout(timeout);
-    const latencyMs = Math.round(performance.now() - start);
-    if (res.ok) {
-      return { connected: true, latencyMs, model: model || 'Sẵn sàng' };
-    }
-    return { connected: false, error: `HTTP ${res.status}` };
-  } catch {
-    clearTimeout(timeout);
-    return { connected: false, error: 'Không kết nối được' };
+  const cleanUrl = baseUrl.trim();
+  if (!cleanUrl) return { connected: false, error: 'Chưa cấu hình URL' };
+
+  // Tự động thử cả 127.0.0.1 nếu người dùng điền localhost (tránh lỗi IPv6 connection refused trên Windows)
+  const candidateUrls = [cleanUrl];
+  if (cleanUrl.includes('localhost')) {
+    candidateUrls.unshift(cleanUrl.replace('://localhost', '://127.0.0.1'));
+  } else if (cleanUrl.includes('127.0.0.1')) {
+    candidateUrls.push(cleanUrl.replace('://127.0.0.1', '://localhost'));
   }
+
+  let lastError = 'Không kết nối được';
+  for (const url of candidateUrls) {
+    const endpoint = `${url.replace(/\/$/, '')}/models`;
+    const start = performance.now();
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 6000);
+    try {
+      const res = await fetchImpl(endpoint, {
+        method: 'GET',
+        signal: controller.signal,
+        headers: {
+          ...(apiKey?.trim() ? { Authorization: `Bearer ${apiKey.trim()}` } : {}),
+        },
+      });
+      clearTimeout(timeout);
+      const latencyMs = Math.round(performance.now() - start);
+      if (res.ok) {
+        return { connected: true, latencyMs, model: model || 'Sẵn sàng' };
+      }
+      lastError = `HTTP ${res.status}`;
+    } catch {
+      clearTimeout(timeout);
+    }
+  }
+
+  return { connected: false, error: lastError };
 }
+
 

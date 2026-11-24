@@ -838,11 +838,12 @@ function ProviderSettings({
 
   const handleFetchModels = async () => {
     let effectiveUrl = provider.baseUrl.trim();
-    // 9Router chạy daemon cục bộ trên cổng 20128; tự động chuyển sang http://localhost:20128/v1 nếu gặp domain web
-    if (!effectiveUrl || effectiveUrl === 'https://api.9router.com/v1') {
-      effectiveUrl = 'http://localhost:20128/v1';
-      edit((val) => ({ ...val, provider: { ...provider, baseUrl: effectiveUrl } }));
+    if (!effectiveUrl || effectiveUrl.includes('9router.com') || effectiveUrl.includes('localhost:20128')) {
+      effectiveUrl = 'http://127.0.0.1:20128/v1';
+    } else if (effectiveUrl.includes('localhost')) {
+      effectiveUrl = effectiveUrl.replace('://localhost', '://127.0.0.1');
     }
+    edit((val) => ({ ...val, provider: { ...provider, baseUrl: effectiveUrl } }));
     setFetchingModels(true);
     setFetchMessage('Đang kết nối để nạp danh sách model...');
     try {
@@ -852,7 +853,7 @@ function ProviderSettings({
         setFetchMessage(`Đã nạp thành công ${models.length} model từ ${effectiveUrl}!`);
         // Tự động ưu tiên chọn model Vision tốt nhất (nicegg nếu có, hoặc vision model đầu tiên)
         const preferred = models.find((m) => m.id === 'nicegg') || models.find((m) => m.vision) || models[0];
-        if (preferred && (!provider.model.trim() || provider.model === 'openai/gpt-4o' || provider.model === 'Qwen')) {
+        if (preferred) {
           edit((val) => ({
             ...val,
             provider: {
@@ -876,14 +877,19 @@ function ProviderSettings({
 
   const handleTestConnection = async () => {
     let testUrl = provider.baseUrl.trim();
-    if (!testUrl || testUrl === 'https://api.9router.com/v1') {
-      testUrl = 'http://localhost:20128/v1';
-      edit((val) => ({ ...val, provider: { ...provider, baseUrl: testUrl } }));
+    if (!testUrl || testUrl.includes('9router.com') || testUrl.includes('localhost:20128')) {
+      testUrl = 'http://127.0.0.1:20128/v1';
+    } else if (testUrl.includes('localhost')) {
+      testUrl = testUrl.replace('://localhost', '://127.0.0.1');
     }
+    edit((val) => ({ ...val, provider: { ...provider, baseUrl: testUrl } }));
     setLiveCheck({ connected: false, error: 'Đang kiểm tra...' });
     try {
       const res = await checkProviderLiveStatus(testUrl, provider.model, apiKey);
       setLiveCheck(res);
+      if (res.connected) {
+        edit((val) => ({ ...val, provider: { ...provider, baseUrl: testUrl, enabled: true } }));
+      }
     } catch {
       setLiveCheck({ connected: false, error: 'Thất bại khi kết nối' });
     }
@@ -893,7 +899,7 @@ function ProviderSettings({
     let defaultUrl = provider.baseUrl;
     let defaultModel = provider.model;
     if (kind === '9router-cloud') {
-      defaultUrl = 'http://localhost:20128/v1';
+      defaultUrl = 'http://127.0.0.1:20128/v1';
       defaultModel = 'nicegg';
     } else if (kind === 'lm-studio-local') {
       defaultUrl = 'http://127.0.0.1:8080/v1';
