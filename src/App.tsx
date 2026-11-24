@@ -58,8 +58,46 @@ const fileToDataUrl = (file: File) =>
     reader.readAsDataURL(file);
   });
 
+const STORAGE_KEY_PROVIDER = 'mangatrans_saved_provider';
+const STORAGE_KEY_APIKEY = 'mangatrans_saved_apikey';
+const STORAGE_KEY_CONSENT = 'mangatrans_saved_consent';
+
+const loadSavedProvider = () => {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_PROVIDER);
+    if (raw) return JSON.parse(raw);
+  } catch {}
+  return {
+    kind: '9router-cloud' as const,
+    baseUrl: 'http://127.0.0.1:20128/v1',
+    model: 'nicegg',
+    hasApiKey: false,
+    vision: true,
+    enabled: true,
+  };
+};
+
+const loadSavedApiKey = (): string => {
+  try {
+    return localStorage.getItem(STORAGE_KEY_APIKEY) || '';
+  } catch {}
+  return '';
+};
+
+const loadSavedConsent = (): boolean => {
+  try {
+    const val = localStorage.getItem(STORAGE_KEY_CONSENT);
+    return val === null ? true : val === 'true';
+  } catch {}
+  return true;
+};
+
 export default function App() {
-  const [project, setProject] = useState<MangaProject>(createProject());
+  const [project, setProject] = useState<MangaProject>(() => {
+    const init = createProject();
+    init.provider = loadSavedProvider();
+    return init;
+  });
   const [history, setHistory] = useState<MangaProject[]>([]);
   const [future, setFuture] = useState<MangaProject[]>([]);
   const [notice, setNotice] = useState('Sẵn sàng nhập ảnh truyện.');
@@ -75,10 +113,25 @@ export default function App() {
   const [showOnboarding, setShowOnboarding] = useState(
     () => !project.onboarding?.completed && !project.onboarding?.skipped
   );
-  const [sessionApiKey, setSessionApiKey] = useState('');
-  const [cloudConsent, setCloudConsent] = useState(false);
+  const [sessionApiKey, setSessionApiKey] = useState(loadSavedApiKey);
+  const [cloudConsent, setCloudConsent] = useState(loadSavedConsent);
   const [, setPipeline] = useState<PipelineState>(() => createPipeline(project.pages));
   const [isTranslating, setIsTranslating] = useState(false);
+
+  // Tự động lưu cấu hình Provider & API key vào localStorage mỗi khi thay đổi
+  useEffect(() => {
+    if (sessionApiKey) localStorage.setItem(STORAGE_KEY_APIKEY, sessionApiKey);
+  }, [sessionApiKey]);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY_CONSENT, String(cloudConsent));
+  }, [cloudConsent]);
+
+  useEffect(() => {
+    if (project.provider) {
+      localStorage.setItem(STORAGE_KEY_PROVIDER, JSON.stringify(project.provider));
+    }
+  }, [project.provider]);
 
   // Live AI Connection State
   const [aiStatus, setAiStatus] = useState<ConnectionStatus>({ connected: false, error: 'Chưa kết nối' });

@@ -60,7 +60,7 @@ export async function runVisionPipeline(
         inputHash: page.sourceUrl,
         imageDataUrl: page.sourceUrl,
         instruction:
-          'Analyze this manga page. Return JSON only: {"regions":[{"id":"stable-id","x":0,"y":0,"width":10,"height":10,"sourceText":"","confidence":0,"sourceLanguage":"","kind":"speech"}]}',
+          'Analyze this manga page. Detect all speech bubbles and text. Return JSON only in this format: {"regions":[{"id":"r1","x":10,"y":20,"width":30,"height":15,"sourceText":"...","confidence":0.95,"sourceLanguage":"ja","kind":"speech"}]}. Note: Coordinates x, y, width, height must be percentages (0 to 100) of image dimensions.',
         promptRevision: pageRevision(page),
         parseResponse: true,
       });
